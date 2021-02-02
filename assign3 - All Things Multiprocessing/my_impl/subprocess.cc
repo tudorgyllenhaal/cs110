@@ -49,7 +49,7 @@ void Execvp(const char* file, char* const argv[]) {
 }
 */
 subprocess_t subprocess(char *argv[], bool supplyChildInput, bool ingestChildOutput) throw (SubprocessException) {
-	static const NOT_UNUSED=-1;
+	static const int NOT_UNUSED=-1;  //const used to signify the file descriptor isn't used
 	int inputFds[2]={NOT_UNUSED,NOT_UNUSED};
 	int outputFds[2]={NOT_UNUSED,NOT_UNUSED};
 	subprocess_t subpr;
@@ -99,8 +99,16 @@ subprocess_t subprocess(char *argv[], bool supplyChildInput, bool ingestChildOut
 	}
 	// parent process
 	subpr.pid=pid;
+    if(supplyChildInput){
+        close(inputFds[0]);
+    }
+    if(ingestChildOutput){
+        close(outputFds[1]);
+    }
 	// close input pipes
-	for(int i<0;i<2;i++){
+    /*
+    
+	for(int i=0;i<2;i++){
 		if(inputFds[i]!=NOT_UNUSED){
 			close(inputFds[i]);
 		}
@@ -111,5 +119,6 @@ subprocess_t subprocess(char *argv[], bool supplyChildInput, bool ingestChildOut
 			close(outputFds[i]);
 		}
 	}
+    */
 	return subpr;
 }
