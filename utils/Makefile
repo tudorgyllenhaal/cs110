@@ -1,5 +1,5 @@
-CXX=/usr/local/Cellar/gcc@6/6.5.0_5.reinstall/bin/g++-6
-CXXFLAGS=-c
+CXX=g++
+CXXFLAGS=-c -std=c++11
 LIB=string-utils.a
 LIB_SRC=string-utils.cpp
 LIB_OBJ=$(patsubst %.a, %.o,$(LIB))

@@ -6,8 +6,8 @@ PROGS = $(C_PROGS) $(CXX_PROGS)
 EXTRA_C_PROGS = 
 EXTRA_CXX_PROGS = simple-test1 simple-test2 simple-test3 simple-test4 simple-test5 subprocess-test trace-system-calls-test trace-error-constants-test
 EXTRA_PROGS = $(EXTRA_C_PROGS) $(EXTRA_CXX_PROGS)
-CC = /usr/local/Cellar/gcc@6/6.5.0_5.reinstall/bin/gcc-6
-CXX = /usr/local/Cellar/gcc@7/7.5.0_2.reinstall/bin/x86_64-apple-darwin19.4.0-g++-7
+CC = gcc
+CXX = g++
 
 C_WARNINGS = -Wall -pedantic
 C_DEPS = -MMD -MF $(@:.o=.d)
@@ -19,7 +19,7 @@ CFLAGS = -g $(C_WARNINGS) $(C_DEPS) -std=gnu99 $(C_INCLUDE)
 CXX_WARNINGS = -Wall -pedantic -Wno-vla
 CXX_DEPS = -MMD -MF $(@:.o=.d)
 CXX_DEFINES =
-CXX_INCLUDES = -I/Users/mclynn/Documents/Computer\ Science/Stanford/CS110/CS110/assign/utils
+CXX_INCLUDES = -I/home/sean/Documents/cs110/cs110/utils
 CXXFLAGS = -g $(CXX_WARNINGS) -O0 -std=c++0x $(CXX_DEPS) $(CXX_DEFINES) $(CXX_INCLUDES)
 LDFLAGS = 
 
@@ -32,7 +32,7 @@ TRACE_LIB_SRC = trace-options.cc trace-error-constants.cc trace-system-calls.cc 
 TRACE_LIB_OBJ = $(patsubst %.cc,%.o,$(patsubst %.S,%.o,$(TRACE_LIB_SRC)))
 TRACE_LIB_DEP = $(patsubst %.o,%.d,$(TRACE_LIB_OBJ))
 TRACE_LIB = libtrace.a 
-TRACE_EXT_LIB=/Users/mclynn/Documents/Computer\ Science/Stanford/CS110/CS110/assign/utils/string-utils.a
+TRACE_EXT_LIB=/home/sean/Documents/cs110/cs110/utils/string-utils.a
 
 C_PROGS_SRC = $(patsubst %,%.c,$(C_PROGS))
 C_PROGS_OBJ = $(patsubst %.c,%.o,$(patsubst %.S,%.o,$(C_PROGS_SRC)))
