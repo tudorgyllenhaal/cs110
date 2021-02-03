@@ -44,13 +44,13 @@ int IsSystemCallWrapper(int status){
 	}
 	if(WIFSTOPPED(status)){
 		cout<<"[DEBUG] Status is "<<status<<" And Signal is "<<WSTOPSIG(status)<<endl;
-		if(((mask&status)!=0)&&(WSTOPSIG(mask&status)==SIGTRAP)){
-			cout<<"[DEBUG] Do Something for SYS CALL"<<endl;
+		if(WSTOPSIG(status)==mask+SIGTRAP){
+			cout<<"[DEBUG] SYSCALL!!!"<<endl;
 			return STA_SYSCALL;
-		}else{
-			cout<<"[DEBUG] Child Process is Stopped by "<<WSTOPSIG(status)<<endl;
-                        return STA_STOPPED;
 		}
+		cout<<"[DEBUG] Child Process is Stopped by "<<WSTOPSIG(status)<<endl;
+                return STA_STOPPED;
+		
 	}
 	if(WIFCONTINUED(status)){
 		cout<<"[DEBUG] Child Process is Continued"<<endl;
@@ -61,10 +61,12 @@ int IsSystemCallWrapper(int status){
 
 void InspectArguements(pid_t pid,bool simplemode){
 	cout<<"Do something to Arguements"<<endl;
+	ptrace(PTRACE_SYSCALL,pid,0,0);
 	return;
 }
 void InspectReturnValue(pid_t pid,bool simplemode){
 	cout<<"Do something to Return Values"<<endl;
+	ptrace(PTRACE_SYSCALL,pid,0,0);
 	return;
 }
 
@@ -115,8 +117,8 @@ int main(int argc, char *argv[]){
         // Parent Process
 	int status;
 	int result=0;
-        long addr;
-        int data;
+        // long addr;
+        //int data;
 
 	result=waitpid(pid,&status,0);
 	if(result<0){
@@ -165,9 +167,9 @@ int main(int argc, char *argv[]){
 			result=IsSystemCallWrapper(status);
                         if(result==STA_EXIT){
                                 return 0;
-                        }else if(result=STA_ABNORMAL){
+                        }else if(result==STA_ABNORMAL){
                                 return -1;
-                        }else if(result==STA_STOPPED)
+                        }else if(result==STA_STOPPED){
                                 return -1;
                         }else if(result==STA_SYSCALL){
                                 InspectReturnValue(pid,simpleMode);
@@ -175,5 +177,6 @@ int main(int argc, char *argv[]){
                         }
 		}
 	}
+	
 	return -1;
 }
