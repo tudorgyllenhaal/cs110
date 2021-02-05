@@ -7,7 +7,7 @@ EXTRA_C_PROGS =
 EXTRA_CXX_PROGS = simple-test1 simple-test2 simple-test3 simple-test4 simple-test5 subprocess-test trace-system-calls-test trace-error-constants-test
 EXTRA_PROGS = $(EXTRA_C_PROGS) $(EXTRA_CXX_PROGS)
 CC = gcc
-CXX = g++
+CXX = g++-5
 
 C_WARNINGS = -Wall -pedantic
 C_DEPS = -MMD -MF $(@:.o=.d)
