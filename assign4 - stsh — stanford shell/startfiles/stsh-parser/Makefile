@@ -16,7 +16,7 @@ TARGETS = stsh-parse-test parser.cc parser.h scanner.cc
 CXXFLAGS = -g -Wall -pedantic -O0 -std=c++0x -I/afs/ir/class/cs110/local/include
 
 stsh-parse-test: stsh-parse-test.o stsh-parse.o scanner.cc parser.cc stsh-readline.o
-	g++ -o stsh-parse-test stsh-parse-test.o stsh-parse.o scanner.cc parser.cc stsh-readline.o -ll -lreadline
+	g++ -o stsh-parse-test stsh-parse-test.o stsh-parse.o scanner.cc parser.cc stsh-readline.o  -ll -lreadline
 
 parser.cc: parser.y
 	$(BISON) $(BISONFLAGS) -o $@ $^
