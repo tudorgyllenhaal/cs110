@@ -18,6 +18,8 @@ LIB_OBJ = $(patsubst %.cc,%.o,$(patsubst %.S,%.o,$(LIB_SRC)))
 LIB_DEP = $(patsubst %.o,%.d,$(LIB_OBJ))
 LIB = stsh.a
 
+LIB_EXT_LIB=/home/sean/Documents/cs110/cs110/utils/string-utils.a
+
 PROGS_SRC = $(patsubst %,%.cc,$(PROGS))
 PROGS_OBJ = $(patsubst %.cc,%.o,$(patsubst %.S,%.o,$(PROGS_SRC)))
 PROGS_DEP = $(patsubst %.o,%.d,$(PROGS_OBJ))
@@ -35,7 +37,7 @@ stsh-parser/parser.o: stsh-parser/parser.cc
 stsh-parser/scanner.o: stsh-parser/scanner.cc
 
 stsh: %:%.o $(LIB)
-	$(CXX) $^ $(LDFLAGS) -o $@
+	$(CXX) $^ $(LDFLAGS) $(LIB_EXT_LIB) -o $@
 
 $(LIB): $(LIB_OBJ)
 	rm -f $@
