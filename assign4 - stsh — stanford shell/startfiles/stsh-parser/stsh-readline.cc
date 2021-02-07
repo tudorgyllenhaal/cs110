@@ -58,7 +58,7 @@ bool readline(string& line) {
   if (!history) {
     cout << prompt;
     getline(cin, line);
-    trim(line);
+    StringUtils::Trim(line);
     return !cin.eof();
   }
   
@@ -66,7 +66,7 @@ bool readline(string& line) {
   if (s == NULL) return false;
   line = s;
   free(s);
-  trim(line);
+  StringUtils::Trim(line);
   if (!line.empty()) 
     add_history(line.c_str());
   return true;
