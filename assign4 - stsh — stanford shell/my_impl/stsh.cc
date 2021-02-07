@@ -28,8 +28,38 @@ using namespace std;
 
 static STSHJobList jobList; // the one piece of global data we need so signal handlers can access it
 
-static void handle_fg(const pipeline& pipeline) {
+static void handle_fg(const pipeline& p) {
+	cout<<"[DEBUG] Get into fg handler"<<endl;
+	int jobNum=atoi(p.commands[0].tokens[0]);
+	if(jobList.containsJob(jobNum)){
+		pid_t gpid=jobList.getJob(jobNum).getGroupID();
+		int result=kill(-gpid,SIGCONT);
+		if(result<0){
+			cout<<"[DEBUG] Failt to Send SIGCONT"<<endl;
+		}
+		// set it to foreground
+		jobList.getJob(jobNum).setState(kForeground);
+	}else{
+		throw STSHException("No Such Job Number");
+	}
+	sigset_t newset,oldset;
 
+        sigfillset(&newset);
+        sigdelset(&newset,SIGCHLD);
+        sigdelset(&newset,SIGINT);
+        sigdelset(&newset,SIGTSTP);
+        //sigemptyset(&newset);
+        //sigaddset(&newset,SIGCHLD);
+        //sigprocmask(SIG_UNBLOCK,,&myset);
+        //while(true)
+        while(true){
+		cout<<"[DEBUG] Handle Foreground Job"<<endl;
+                sigsuspend(&newset);
+                if(!jobList.hasForegroundJob()){
+                        break;
+                }
+        }
+        cout<<"[DEBUG] No Foreground Jobs"<<endl;
 }
 
 static void handle_bg(const pipeline& p) {
@@ -56,32 +86,93 @@ static void handle_cont(const pipeline& p) {
  */
 static const string kSupportedBuiltins[] = {"quit", "exit", "fg", "bg", "slay", "halt", "cont", "jobs"};
 static const size_t kNumSupportedBuiltins = sizeof(kSupportedBuiltins)/sizeof(kSupportedBuiltins[0]);
-static bool handleBuiltin(const pipeline& pipeline) {
-	return false;	
+static bool handleBuiltin(const pipeline& p) {
+	const char* command=p.commands[0].command;
+	int matched=-1;
+	for(size_t i=0;i<kNumSupportedBuiltins;i++){
+		if(strcmp(command,kSupportedBuiltins[i].c_str())==0){
+			matched=i;
+			break;
+		}
+	}
+	cout<<"Matched Number is "<<matched<<endl;
+	switch(matched){
+		case 0:
+			break;
+		case 1:
+			break;
+		case 2:
+			handle_fg(p);
+			break;
+		case 3:
+			handle_bg(p);
+			break;
+		case 4:
+			handle_slay(p);
+			break;
+		case 5:
+			handle_halt(p);
+			break;
+		case 6:
+			handle_cont(p);
+			break;
+		case 7:
+			break;
+		default:
+			return false;
+	}
+	return true;
 }
 
+
+
 static void sigint_handler(int sig) {
+	if(jobList.hasForegroundJob()){
+		pid_t gpid=jobList.getForegroundJob().getGroupID();
+		int result=kill(-gpid,SIGINT);
+		if(result<0){
+			cout<<"[ERROR] Failt Sending Signal SIGINT to "<<-gpid<<endl;
+		}
+	}else{
+		exit(0);
+	}
 	
 }
 
 static void sigtstp_handler(int sig) {
-
+	if(jobList.hasForegroundJob()){
+                pid_t gpid=jobList.getForegroundJob().getGroupID();
+                int result=kill(-gpid,SIGTSTP);
+                if(result<0){
+                        cout<<"[ERROR] Failt Sending Signal SIGTSTP to "<<-gpid<<endl;
+                }else{
+			cout<<"[DEBUG] SIGTSTP is Send"<<endl;
+		}
+        }
 }
 static void sigchld_handler(int sig){
 	int status;
 	while(true){
-		pid_t pid=waitpid(-1,&status,WNOHANG);
+		pid_t pid=waitpid(-1,&status,WNOHANG|WUNTRACED);
 		if(pid<0){
-			//cout<<"[ERROR] Errors Occured While Waiting for Child Process";
+			cout<<"[ERROR] Errors Occured While Waiting for Child Process";
 			break;
 		}else if(pid==0){
+			cout<<"[DEBUG] Nothing to Return"<<endl;
 			break;
 		}else{
 			if(WIFSIGNALED(status)||WIFEXITED(status)){
 				cout<<"[DEBUG] Child Process is Terminated (normally or abnormally)"<<endl;
 				jobList.getJobWithProcess(pid).getProcess(pid).setState(kTerminated);
+				jobList.synchronize(jobList.getJobWithProcess(pid));
+				//cout<<jobList<<endl;
+				//cout<<"[DEBUG]"<<endl;
 			}else if(WIFSTOPPED(status)){
 				cout<<"[DEBUG] Child Process "<<pid<<" is stopped"<<endl;
+				jobList.getJobWithProcess(pid).getProcess(pid).setState(kStopped);
+                                jobList.synchronize(jobList.getJobWithProcess(pid));
+			}else{
+				cout<<"[DEBUG] Child State Changed"<<endl;
 			}
 		}
 	}
@@ -96,6 +187,8 @@ static void sigchld_handler(int sig){
  * ignores two others.
  */
 static void installSignalHandlers() {
+	signal(SIGINT,sigint_handler);
+	signal(SIGTSTP,sigtstp_handler);
 	signal(SIGCHLD,sigchld_handler);
 	
 }
@@ -103,11 +196,11 @@ static void installSignalHandlers() {
 static void showPipeline(const pipeline& p) {
 	
 }
-void cmd2argv(command& c,char* argv[]){
+void cmd2argv(const command& c,char* argv[]){
 	//argv=(char**)malloc((kMaxArguments+2)*sizeof(void *));
 	for(unsigned int i=0;i<kMaxArguments+2;i++){
 		if(i==0){
-			argv[i]=c.command;
+			argv[i]=const_cast<char*>(c.command);
 		}else{
 			argv[i]=c.tokens[i-1];
 			if((c.tokens[i-1])==NULL){
@@ -123,12 +216,8 @@ void cmd2argv(command& c,char* argv[]){
  */
 
 
-static void createJob(const pipeline& p) {
+static void createJob(const pipeline& pip) {
 	// showPipeline(p)
-	
-	string cmd="sleep 5";
-
-	pipeline pip(cmd);
  
 	char* argv[kMaxArguments+2]={NULL};
 	cmd2argv(pip.commands[0],argv);
@@ -171,11 +260,19 @@ static void createJob(const pipeline& p) {
 	
 	sigfillset(&newset);
 	sigdelset(&newset,SIGCHLD);
+	sigdelset(&newset,SIGINT);
+	sigdelset(&newset,SIGTSTP);
 	//sigemptyset(&newset);
 	//sigaddset(&newset,SIGCHLD);
 	//sigprocmask(SIG_UNBLOCK,,&myset);
-	//while(true){
-	sigsuspend(&newset);
+	//while(true)
+	while(true){
+		sigsuspend(&newset);
+		if(!jobList.hasForegroundJob()){
+			break;
+		}
+	}
+	cout<<"[DEBUG] No Foreground Jobs"<<endl;
 	//jobList.get	
 }
 
@@ -193,7 +290,7 @@ int main(int argc, char *argv[]) {
 	while (true) {
 		string line;
 		if (!readline(line)) break;
-		//if (line.empty()) continue;
+		if (line.empty()) continue;
 		try {
 			pipeline p(line);
 			bool builtin = handleBuiltin(p);
