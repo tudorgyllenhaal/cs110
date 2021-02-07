@@ -26,7 +26,7 @@
 #include<errno.h>
 using namespace std;
 
-static STSHJobList joblist; // the one piece of global data we need so signal handlers can access it
+static STSHJobList jobList; // the one piece of global data we need so signal handlers can access it
 
 static void handle_fg(const pipeline& pipeline) {
 
@@ -67,6 +67,26 @@ static void sigint_handler(int sig) {
 static void sigtstp_handler(int sig) {
 
 }
+static void sigchld_handler(int sig){
+	int status;
+	while(true){
+		pid_t pid=waitpid(-1,&status,WNOHANG);
+		if(pid<0){
+			//cout<<"[ERROR] Errors Occured While Waiting for Child Process";
+			break;
+		}else if(pid==0){
+			break;
+		}else{
+			if(WIFSIGNALED(status)||WIFEXITED(status)){
+				cout<<"[DEBUG] Child Process is Terminated (normally or abnormally)"<<endl;
+				jobList.getJobWithProcess(pid).getProcess(pid).setState(kTerminated);
+			}else if(WIFSTOPPED(status)){
+				cout<<"[DEBUG] Child Process "<<pid<<" is stopped"<<endl;
+			}
+		}
+	}
+	cout<<jobList<<endl;
+}
 /**
  * Function: installSignalHandlers
  * -------------------------------
@@ -76,57 +96,87 @@ static void sigtstp_handler(int sig) {
  * ignores two others.
  */
 static void installSignalHandlers() {
+	signal(SIGCHLD,sigchld_handler);
 	
 }
 
 static void showPipeline(const pipeline& p) {
 	
 }
-
+void cmd2argv(command& c,char* argv[]){
+	//argv=(char**)malloc((kMaxArguments+2)*sizeof(void *));
+	for(unsigned int i=0;i<kMaxArguments+2;i++){
+		if(i==0){
+			argv[i]=c.command;
+		}else{
+			argv[i]=c.tokens[i-1];
+			if((c.tokens[i-1])==NULL){
+				break;
+			}
+		}
+	}
+}
 /**
  * Function: createJob
  * -------------------
  * Creates a new job on behalf of the provided pipeline.
  */
+
+
 static void createJob(const pipeline& p) {
 	// showPipeline(p)
 	
-	char *argv[]={"sleep","5",NULL};
-	cout<<"milestone 2"<<endl;
+	string cmd="sleep 5";
+
+	pipeline pip(cmd);
+ 
+	char* argv[kMaxArguments+2]={NULL};
+	cmd2argv(pip.commands[0],argv);
+
+	cout<<"[DEBUG] To Execuate in Child "<<argv[0]<<" with "<<argv[1]<<endl;
+
 	pid_t pid=fork();
 
 	if(pid==0){
-		cout<<"[DEBUG] To Execuate "<<argv[0]<<endl;
+		cout<<"[DEBUG] To Execuate "<<argv[0]<<" with "<<argv[1]<<endl;
 		execvp(argv[0],argv);
 		// fail to execuate the command
 		cout<<"[ERROR] Fail to Execute "<<argv[0]<<endl;
-		cout<<"[ERROR] Failed Because of "<<errno<<endl;
+		cout<<"[ERROR] Failed Because of "<<strerror(errno)<<endl;
 		//return -1;
 	}
-	int status;
 	int result;
-	while(true){
-		result=waitpid(pid,&status,0);
-		if(result<0){
-			cout<<"[ERROR] Errors Occured Whild Waiting for Child Process"<<endl;
-			//return -1;
-			return;
-		}
-		if(WIFEXITED(status)){
-			cout<<"[DEBUG] Child Process Exited"<<endl;
-			return;
-			//return 0;
-		}
-		if(WIFSIGNALED(status)){
-			cout<<"[DEBUG] Child Process is Terminated by Signal "<<WTERMSIG(status)<<endl;
-			return;
-			//return -1;
-		}
-		if(WIFSTOPPED(status)){
-			cout<<"[DEBUG] Child Process is Stopped by Signal "<<WSTOPSIG(status)<<endl;
-			//return -1;
-		}
+	
+	result=setpgid(pid,0);
+	if(result<0){
+		cout<<"[ERROR] Errors Occured While Setting Group ID for Child Process"<<endl;
+		cout<<"[ERROR] Because of "<<strerror(errno)<<endl;
+		return;
 	}
+	// create and set up process
+	
+
+	STSHProcess pro{pid,pip.commands[0]};
+	
+	// get a new job from the job list, and add process to this job
+	
+
+	jobList.addJob(kForeground).addProcess(pro);
+	
+
+	cout<<jobList<<endl;
+	
+	// block main process 
+	sigset_t newset,oldset;
+	
+	sigfillset(&newset);
+	sigdelset(&newset,SIGCHLD);
+	//sigemptyset(&newset);
+	//sigaddset(&newset,SIGCHLD);
+	//sigprocmask(SIG_UNBLOCK,,&myset);
+	//while(true){
+	sigsuspend(&newset);
+	//jobList.get	
 }
 
 /**
