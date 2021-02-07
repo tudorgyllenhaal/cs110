@@ -1,5 +1,0 @@
-# Trace: eof
-# ----------
-# Exercises stsh's ability to detect EOF.
-CLOSE
-WAIT

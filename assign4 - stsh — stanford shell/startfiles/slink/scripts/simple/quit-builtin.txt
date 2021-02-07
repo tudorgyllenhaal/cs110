@@ -1,5 +1,0 @@
-# Trace: quit-builtin
-# -------------------
-# Exercises the quit builtin.
-quit
-WAIT
