@@ -14,12 +14,10 @@ TARGETS = stsh-parse-test parser.cc parser.h scanner.cc
 #  -O0         do not optimize generated code
 #  -std=c++0x  use C++ 11 features like range-based for loops
 CXXFLAGS = -g -Wall -pedantic -O0 -std=c++0x -I/home/sean/Documents/cs110/cs110/utils
-LDLIBRARY=/home/sean/Documents/cs110/cs110/utils/string-utils.a
 
 stsh-parse-test: stsh-parse-test.o stsh-parse.o scanner.cc parser.cc stsh-readline.o
-
-g++ -o stsh-parse-test stsh-parse-test.o stsh-parse.o scanner.cc parser.cc stsh-readline.o  -ll -lreadline
-	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDLIBRARY) -ll -lreadline
+	g++ -o stsh-parse-test stsh-parse-test.o stsh-parse.o scanner.cc parser.cc stsh-readline.o  -ll -lreadline
+	
 
 
 parser.cc: parser.y
