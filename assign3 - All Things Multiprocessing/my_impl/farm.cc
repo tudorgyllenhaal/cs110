@@ -1,13 +1,12 @@
-#include <cassert>
-#include <ctime>
-#include <cctype>
-#include <cstdio>
-#include <iostream>
-#include <cstdlib>
-#include <vector>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <sched.h>
+#include<sys/types.h>
+#include<sys/wait.h>
+#include<signal.h>
+#include<stdio.h>
+
+#include<iostream>
+#include<vector>
+#include<string>
+
 #include "subprocess.h"
 
 using namespace std;
@@ -24,105 +23,85 @@ static vector<worker> workers(kNumCPUs);
 static size_t numWorkersAvailable = 0;
 
 static void markWorkersAsAvailable(int sig) {
-	while(true) {
-		pid_t pid = waitpid(-1, NULL, WNOHANG|WUNTRACED);
-		if(pid <= 0) {
-			break;
-		}
-		// reap a halted worker, mark him available
-		for(size_t w = 0; w < kNumCPUs; w++) {
-			if(workers[w].sp.pid == pid) {
-				workers[w].available = true;
-				numWorkersAvailable++;
-				break;
+	int status;
+	int pid;
+	while(true){
+		pid=waitpid(-1,&status,WNOHANG);
+		if(pid>0){
+			for(auto it=workers.begin();it!=workers.end();it++){
+				if((pid==it->sp.pid)&&(!it->available)){
+					it->available=true;
+					numWorkersAvailable++;
+					break;
+				}
 			}
-		}
-	}
-}
-
-static const char *kWorkerArguments[] = {"./factor.py", "--self-halting", NULL};
-static void spawnAllWorkers() {
-	cout << "There are this many CPUs: " << kNumCPUs << ", numbered 0 through " << kNumCPUs - 1 << "." << endl;
-	for (size_t i = 0; i < kNumCPUs; i++) {
-		cpu_set_t set;
-		CPU_ZERO(&set);
-		CPU_SET(i, &set);
-		workers[i] = worker((char**)kWorkerArguments);
-		sched_setaffinity(workers[i].sp.pid, sizeof(cpu_set_t), &set);
-		cout << "Worker " << workers[i].sp.pid << " is set to run on CPU " << i << "." << endl;
-	}
-}
-
-static size_t getAvailableWorker() {
-	// set block mask for SIGCHLD
-	sigset_t additions, existingmask;
-	sigemptyset(&additions);
-	sigaddset(&additions, SIGCHLD);
-	sigprocmask(SIG_BLOCK, &additions, &existingmask);
-	// lift SIGCHLD and wait for intriguing handler
-	while(numWorkersAvailable == 0) {
-		sigsuspend(&existingmask);
-	}
-	int idx = kNumCPUs;
-	for(size_t w = 0; w < kNumCPUs; w++) {
-		if(workers[w].available) {
-			idx = w;
+			
+		}else{
+			if(pid<0){
+				cout<<"[ERROR] Error occured while waiting for child process"<<endl;
+			}
 			break;
 		}
 	}
-	// unblcok SIGCHLD
-	sigprocmask(SIG_UNBLOCK, &additions, NULL);
-	return idx;
+}
+
+static char *kWorkerArguments[] = {"./factor.py", "--self-halting", NULL};
+static void spawnAllWorkers() {
+	for(unsigned int i=0;i<kNumCPUs;i++){
+		workers[i]=worker(kWorkerArguments);
+	}
+}
+static size_t getAvailableWorker() {
+	sigset myset,childset;
+	while(numWorkersAvailable==0){
+		sigfillset(&myset);
+	}
+	for(size_t i=0;i<kNumCPUs;i++){
+		if(workers[i].available){
+			return i;
+		}
+	}
+	
 }
 
 static void broadcastNumbersToWorkers() {
-	while (true) {
+	while(true){
 		string line;
-		getline(cin, line);
-		if (cin.fail()) break;
+		getline(cin,line);
+		if(cin.fail()) break;
 		size_t endpos;
-		long long num = stoll(line, &endpos);
-		if (endpos != line.size()) break;
-		// get available worker index
-		size_t idx = getAvailableWorker();
-		if(idx < kNumCPUs) {
-			workers[idx].available = false;
-			numWorkersAvailable--;
-			// feed num to supplyfd and tell him to continue
-			dprintf(workers[idx].sp.supplyfd, "%lld\n", num);
-			kill(workers[idx].sp.pid, SIGCONT);
-		}
+		stoll(line,&endpos);
+		if(endpos!=line.size()) break;
+		size_t index=getAvailableWorker();
+		workers[index].available=false;
+		numWorkersAvailable--;
+		int  supply_fd=workers[index].sp.supplyfd;
+		dprintf(supply_fd,"%s\n",line.c_str());
+		kill(workers[index].sp.pid,SIGCONT);
 	}
 }
 
 static void waitForAllWorkers() {
-	// blcok SIGCHLD
-	sigset_t additions, existingmask;
-	sigemptyset(&additions);
-	sigaddset(&additions, SIGCHLD);
-	sigprocmask(SIG_BLOCK, &additions, &existingmask);
-	// check all workers finish their work
-	while(numWorkersAvailable != kNumCPUs) {
-		sigsuspend(&existingmask);
+	
+	for(auto it=workers.begin();it!=workers.end();it++){
+		if(it->available){
+			continue;
+		}
+
 	}
-	// unblock SIGCHLD
-	sigprocmask(SIG_UNBLOCK, &additions, NULL);
 }
 
 static void closeAllWorkers() {
-	signal(SIGCHLD, SIG_DFL);
-	for(size_t w = 0; w < kNumCPUs; w++) {
-		// close supplyfds to indicate an EOF
-		close(workers[w].sp.supplyfd);
-		// py ends when detecting an EOF, but should restart first
-		kill(workers[w].sp.pid, SIGCONT);
+	signal(SIGCHLD,SIG_DEL);
+	for(int i=0;i<kNumCPUs;i++){
+		close(workers[i].sp.supplyfd);
+		kill(workers[i].sp.pid,SIGCONT);
 	}
-	// check all workers come back
-	for(size_t i = 0; i < kNumCPUs; i++) {
-		while(true) {
-			int status;
-			waitpid(workers[i].sp.pid, &status, 0);
-			if(WIFEXITED(status)) {
+	for(unsigned int i=0;i<kNumCPUs;i++){
+		int status;
+		while(true){
+			waitpid(workers[i].sp.pid,&status,0);
+			if(WIFEXITED(status)){
 				break;
 			}
 		}
