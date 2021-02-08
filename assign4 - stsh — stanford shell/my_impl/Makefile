@@ -1,7 +1,7 @@
 # CS110 Assignment 3 Makefile
 PROGS = stsh
 EXTRA_PROGS = spin split int tstp fpe conduit
-CXX = g++
+CXX = g++-5
 
 LIB_SRC = stsh-signal.cc stsh-job-list.cc stsh-job.cc stsh-process.cc stsh-parse-utils.cc \
           stsh-parser/scanner.cc stsh-parser/parser.cc stsh-parser/stsh-parse.cc stsh-parser/stsh-readline.cc
@@ -17,6 +17,8 @@ LDFLAGS = -lreadline -ll
 LIB_OBJ = $(patsubst %.cc,%.o,$(patsubst %.S,%.o,$(LIB_SRC)))
 LIB_DEP = $(patsubst %.o,%.d,$(LIB_OBJ))
 LIB = stsh.a
+
+LIB_EXT_LIB=/home/sean/Documents/cs110/cs110/utils/string-utils.a
 
 PROGS_SRC = $(patsubst %,%.cc,$(PROGS))
 PROGS_OBJ = $(patsubst %.cc,%.o,$(patsubst %.S,%.o,$(PROGS_SRC)))
@@ -35,7 +37,7 @@ stsh-parser/parser.o: stsh-parser/parser.cc
 stsh-parser/scanner.o: stsh-parser/scanner.cc
 
 stsh: %:%.o $(LIB)
-	$(CXX) $^ $(LDFLAGS) -o $@
+	$(CXX) $^ $(LDFLAGS) $(LIB_EXT_LIB) -o $@
 
 $(LIB): $(LIB_OBJ)
 	rm -f $@

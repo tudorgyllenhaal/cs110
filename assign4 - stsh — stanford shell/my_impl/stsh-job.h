@@ -25,7 +25,7 @@
 #include <cstddef>  // for size_t
 #include <vector>   // for vector
 #include <iostream> // for ostream
-
+using namespace std;
 /**
  * Enumerated Type: STSHJobState
  * -----------------------------
