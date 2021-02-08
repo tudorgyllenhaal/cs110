@@ -290,14 +290,20 @@ static void createJob(const pipeline& pip) {
 	int pipeIn;
 	int pipeOut;
 	pid_t gpid;
-	for(unsigned int i=0;i<pip.commands.size();i++){
 
+	// block the handling of child process until all setups finish
+	sigset_t newset,oldset; 
+        sigemptyset(&newset);
+        sigaddset(&newset,SIGCHLD);
+        sigprocmask(SIG_BLOCK,&newset,&oldset);
+	for(unsigned int i=0;i<pip.commands.size();i++){
+		/*
 		// block the handling of child process until we are good with its data structure
 		sigset_t newset,oldset; 
                 sigemptyset(&newset);
                 sigaddset(&newset,SIGCHLD);
                 sigprocmask(SIG_BLOCK,&newset,&oldset);
-
+		*/
 		// prepare for pipeline 
 		int result;
 		//cout<<"[DEBUG] i is "<<i<<endl;
@@ -386,9 +392,10 @@ static void createJob(const pipeline& pip) {
 	                jobList.addJob(kForeground).addProcess(pro);
 	                cout<<jobList<<endl;
 	                
-	                // block main process 
+	                // block main process
+			/* 
 	                sigset_t myset;
-			 sigfillset(&myset);
+			sigfillset(&myset);
 	                sigdelset(&myset,SIGCHLD);
 	                sigdelset(&myset,SIGINT);
 	                sigdelset(&myset,SIGTSTP);
@@ -400,6 +407,7 @@ static void createJob(const pipeline& pip) {
 	                        }
 	                }
 	                sigprocmask(SIG_SETMASK,&oldset,0); //get back to origin signal set
+			*/
 	        }else{
 	                jobList.addJob(kBackground).addProcess(pro);
 	                cout<<jobList<<endl;
@@ -407,6 +415,21 @@ static void createJob(const pipeline& pip) {
 	        }
 		
         }
+	//block the main process if necessary
+	if(!pip.background){
+		sigset_t myset;
+                sigfillset(&myset);
+                sigdelset(&myset,SIGCHLD);
+                sigdelset(&myset,SIGINT);
+                sigdelset(&myset,SIGTSTP);
+                while(true){
+			sigsuspend(&myset);
+			if(!jobList.hasForegroundJob()){
+				 break;
+                        }
+                }
+                sigprocmask(SIG_SETMASK,&oldset,0);
+	}
 
 
 		
