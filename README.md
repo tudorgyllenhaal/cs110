@@ -7,6 +7,6 @@ For each assignment, there are two directory. One is called startfiles and anoth
 assignments yourself. my_impl include my implementations.
 
 I added utils, which is not included in Stanford's original repository, so that these assignments can be runned locally. Also because of this change,
-I changed some original files.
+I changed some original files. If these are turned in, some errors would be thrown.
 
 ************* THE PROJECT IS UNFINISHED YET *******************
